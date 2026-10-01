@@ -124,7 +124,7 @@ def main():
     for sname in srcs or []:
         tp = subj / ".source" / "text" / (Path(sname).stem + ".md")
         if tp.exists():
-            src_figs += len(re.findall(r"\[рис\b", tp.read_text(encoding="utf-8")))
+            src_figs += len(re.findall(r"\[рис\s+\d", tp.read_text(encoding="utf-8")))   # рисунки доски; [рис-стр] учебника не считаем
     n_figs = len(re.findall(r"<figure\b", html))
     if src_figs and n_figs < src_figs:
         warn.append(f"в расшифровках исходников рисунков: {src_figs}, в конспекте: {n_figs} — каждый [рис] должен стать рисунком "

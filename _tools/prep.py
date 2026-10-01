@@ -9,6 +9,10 @@
   python3 _tools/prep.py pending [предмет]   новые исходники (нет в .index.json) и их состояние
   python3 _tools/prep.py extract <файл> ...  текст → .source/text/<имя>.md; рукопись → .source/tiles/<имя>/NN.png
   python3 _tools/prep.py status              таблица для /статус (ничего не создаёт)
+  python3 _tools/prep.py outline <файл.md>   оглавление расшифровки: определения/теоремы/рисунки с номерами строк
+  python3 _tools/prep.py excerpt <предмет> <термин> [<термин> ...] [--in <файл> ...] [--max N]
+                                             целые блоки (определение/теорема + доказательство) из учебников и
+                                             материалов преподавателя, где встречается любой термин, — одним вызовом
 """
 import json, re, subprocess, sys, unicodedata, zipfile
 from pathlib import Path
@@ -119,6 +123,17 @@ def cmd_pending(args):
             print(f"{rel}\t{kind(f)}\t{state(f)}")
     if not n:
         print("новых исходников нет")
+    idx = ROOT / ".index.json"
+    if idx.exists():
+        last = {}
+        for v in json.loads(idx.read_text()).get("processed", {}).values():
+            pdf = v.get("pdf") or ""
+            sj = nfc(pdf.split("/")[0]) if pdf else ""
+            if "_конспекты/" in pdf and (not want or sj == want):
+                last.setdefault(sj, []).append(Path(pdf).name)
+        for sj, names in sorted(last.items()):
+            names.sort(key=lambda n: (re.search(r"\d{4}-\d{2}-\d{2}", n) or [""])[0])
+            print(f"последние конспекты [{sj}]: " + ", ".join(names[-3:]))
 
 
 def _grid(n):
@@ -149,6 +164,142 @@ def tile_image(img_path, out_dir, prefix):
     return out
 
 
+FIG_CAPTION = re.compile(r"(?:^|\s)(?:[Рр]ис(?:унок|\.)\s*\d[\w.]*[^\n]{0,80})")
+
+
+def pdf_text_with_figures(f):
+    """Текст PDF постранично; страницы с картинками или подписями «Рис.» рендерятся в PNG, в текст ставится метка."""
+    pages = int(re.search(r"Pages:\s+(\d+)", subprocess.run(["pdfinfo", str(f)], capture_output=True, text=True).stdout)[1])
+    img_pages = {}
+    for line in subprocess.run(["pdfimages", "-list", str(f)], capture_output=True, text=True).stdout.splitlines()[2:]:
+        parts = line.split()
+        if len(parts) > 4 and parts[0].isdigit() and parts[2] == "image" and int(parts[3]) >= 80 and int(parts[4]) >= 80:
+            img_pages[int(parts[0])] = img_pages.get(int(parts[0]), 0) + 1   # мелкие значки/логотипы не считаем
+    d = tiles_dir(f)
+    out, nfig = [], 0
+    raw = [fix_cp1251(subprocess.run(["pdftotext", "-layout", "-f", str(p), "-l", str(p), str(f), "-"],
+                                     capture_output=True, text=True).stdout).rstrip() for p in range(1, pages + 1)]
+    norm = lambda l: re.sub(r"\d+", "#", re.sub(r"\s+", " ", l)).strip()
+    cnt = {}
+    for t in raw:
+        for k in {norm(l) for l in t.splitlines() if l.strip()}:
+            cnt[k] = cnt.get(k, 0) + 1
+    rep = {k for k, c in cnt.items() if pages >= 5 and c >= 0.4 * pages}   # колонтитулы, навигация слайдов
+    if rep:
+        out.append("[колонтитулы, убраны со всех страниц: " + " | ".join(sorted(rep))[:300] + "]")
+    for p in range(1, pages + 1):
+        txt = "\n".join(l for l in raw[p - 1].splitlines() if norm(l) not in rep)
+        txt = re.sub(r"\n{3,}", "\n\n", txt).strip()
+        caps = [c.strip() for c in FIG_CAPTION.findall(txt)]
+        out.append(f"=== стр. {p} ===")
+        out.append(txt)
+        if img_pages.get(p) or caps:
+            d.mkdir(parents=True, exist_ok=True)
+            png = d / f"page-{p:03d}"
+            if not Path(f"{png}.png").exists():
+                subprocess.run(["pdftoppm", "-r", "100", "-f", str(p), "-l", str(p), "-png", "-singlefile", str(f), str(png)], check=True)
+            what = []
+            if img_pages.get(p): what.append(f"картинок: {img_pages[p]}")
+            if caps: what.append("подписи: " + "; ".join(caps[:3]))
+            out.append(f"[рис-стр {p} | {Path(f'{png}.png').relative_to(ROOT)} | {', '.join(what)} | текст рисунка "
+                       f"сюда не попал — открыть картинку, если рисунок относится к теме]")
+            nfig += 1
+    return "\n".join(out) + "\n", nfig
+
+
+HEAD = re.compile(r"^\s*(?:Определени|Теорем|Лемм|Следстви|Утверждени|Замечани|Пример|Задач|Свойств|Предложени|"
+                  r"Аксиом|§|Глава|Лекция|\d{1,2}(?:\.\d{1,2}){0,2}\.?\s+[А-ЯЁ])", re.I)
+PROOF = re.compile(r"^\s*(?:Доказательств|Док-?во|Решение)", re.I)
+
+
+def _blocks(lines):
+    """Делит текст на смысловые блоки: заголовок (определение/теорема/…) + всё до следующего заголовка.
+    Доказательство не начинает новый блок — оно остаётся со своей теоремой."""
+    starts = [i for i, l in enumerate(lines) if HEAD.match(l) and not PROOF.match(l)]
+    if not starts or starts[0] != 0:
+        starts = [0] + starts
+    return [(a, b) for a, b in zip(starts, starts[1:] + [len(lines)])]
+
+
+def cmd_outline(args):
+    f = Path(args[0]).resolve()
+    for i, l in enumerate(f.read_text(encoding="utf-8").splitlines(), 1):
+        if HEAD.match(l) or l.startswith(("[рис", "=== стр")) or l.lstrip().startswith("#"):
+            if l.startswith("=== стр"):
+                continue
+            print(f"{i}: {l.strip()[:110]}")
+
+
+def cmd_excerpt(args):
+    if len(args) < 2:
+        sys.exit("prep.py excerpt <предмет> <термин> [...] [--max N]")
+    mx = 25000
+    if "--max" in args:
+        i = args.index("--max"); mx = int(args[i + 1]); args = args[:i] + args[i + 2:]
+    only = []
+    if "--in" in args:   # --in "Лекции 5-6" "Лекции 7-8" — искать только в этих файлах (до следующего флага или конца)
+        i = args.index("--in"); j = i + 1
+        while j < len(args) and not args[j].startswith("--"):
+            only.append(nfc(args[j])); j += 1
+        args = args[:i] + args[j:]
+    subj = next((p for p in subjects() if nfc(p.name) == nfc(args[0])), None)
+    if not subj:
+        sys.exit(f"нет предмета {args[0]}")
+    # термин → регэксп по основам слов (первые 5 букв), между словами — до 25 символов
+    pats = [re.compile(r".{0,25}".join(re.escape(w[:5]) for w in t.lower().split()), re.I | re.S) for t in args[1:]]
+    texts = []
+    for d in ("Материал_учебника", "Материал_преподом"):
+        for src in sorted((subj / d).rglob("*")) if (subj / d).is_dir() else []:
+            tp = text_path(src)
+            if tp.exists() and tp not in texts and (not only or any(o in nfc(tp.stem) for o in only)):
+                texts.append(tp)
+    found, seen = [], set()   # (приоритет, число терминов, число совпадений, файл, a, b, страница, текст, термины)
+    STMT = re.compile(r"^\s*(Определени|Теорем|Лемм|Следстви|Утверждени|Свойств|Пример|Предложени|Аксиом)", re.I)
+    for tp in texts:
+        lines = tp.read_text(encoding="utf-8").splitlines()
+        page_of, cur, figs = [], 0, {}
+        for l in lines:
+            m = re.match(r"=== стр\. (\d+) ===", l)
+            cur = int(m[1]) if m else cur
+            page_of.append(cur)
+            if l.startswith("[рис-стр"):
+                figs[cur] = l
+        for a, b in _blocks(lines):
+            body = "\n".join(l for l in lines[a:b] if not l.startswith(("=== стр", "[рис-стр"))).strip()
+            pages_span = sorted({page_of[i] for i in range(a, b) if page_of[i]})
+            fig_lines = [figs[pg] for pg in pages_span if pg in figs]   # рисунок страницы — к каждому блоку на ней
+            if fig_lines:
+                body += "\n" + "\n".join(fig_lines)
+            low = body.lower()
+            hits = [t for t, p in zip(args[1:], pats) if p.search(low)]
+            key = re.sub(r"\W+", "", low)[:400]
+            if hits and len(body) > 40 and key not in seen:      # одинаковые слайды (оглавления разделов) — один раз
+                seen.add(key)
+                found.append((1 if STMT.match(body) else 0, len(hits), sum(len(p.findall(low)) for p in pats),
+                              tp, a, b, page_of[a] or "?", body, hits))
+    # сначала блоки, где совпало больше терминов и чаще; выводим в порядке документа
+    ranked = sorted(found, key=lambda x: (-x[0], -x[1], -x[2]))
+    take, total = [], 0
+    for x in ranked:
+        if total + len(x[7]) > mx:
+            continue
+        take.append(x); total += len(x[7])
+    keep = {id(x) for x in take}
+    shown = 0
+    for x in found:
+        if id(x) in keep:
+            _, _, _, tp, a, b, pg, body, hits = x
+            print(f"\n----- {tp.relative_to(ROOT)} · строки {a+1}–{b} · стр. {pg} · термины: {', '.join(hits)}")
+            print(body)
+            shown += 1
+    rest = [x for x in found if id(x) not in keep]
+    if rest:
+        print(f"\n[не вошли по лимиту {mx} симв. ({len(rest)} блоков) — при необходимости прочитать по строкам:]")
+        for _, _, _, tp, a, b, pg, body, hits in rest[:40]:
+            print(f"  {tp.name}: строки {a+1}–{b}, стр. {pg}: {body.splitlines()[0].strip()[:70]}")
+    print(f"\n[блоков: {shown}, символов: {total}]")
+
+
 def cmd_extract(args):
     for a in args:
         f = Path(a).resolve()
@@ -168,9 +319,10 @@ def cmd_extract(args):
             print(f"текст ({len(txt)} симв.) → {t.relative_to(ROOT)}")
             continue
         if k == "pdf-text":
-            txt = fix_cp1251(subprocess.run(["pdftotext", "-layout", str(f), "-"], capture_output=True, text=True).stdout)
-            t.write_text(f"<!-- источник: {f.relative_to(ROOT)} (pdftotext; формулы проверить по оригиналу при сомнении) -->\n" + txt)
-            print(f"текст ({len(txt)} симв.) → {t.relative_to(ROOT)}")
+            txt, figs = pdf_text_with_figures(f)
+            t.write_text(f"<!-- источник: {f.relative_to(ROOT)} (pdftotext; формулы проверить по оригиналу при сомнении; "
+                         f"страницы с рисунками сохранены картинками — см. [рис-стр]) -->\n" + txt)
+            print(f"текст ({len(txt)} симв., страниц с рисунками: {figs}) → {t.relative_to(ROOT)}")
             continue
         d = tiles_dir(f)
         d.mkdir(parents=True, exist_ok=True)
@@ -226,7 +378,7 @@ def cmd_status(_):
 
 
 if __name__ == "__main__":
-    cmds = {"pending": cmd_pending, "extract": cmd_extract, "status": cmd_status}
+    cmds = {"pending": cmd_pending, "extract": cmd_extract, "status": cmd_status, "outline": cmd_outline, "excerpt": cmd_excerpt}
     if len(sys.argv) < 2 or sys.argv[1] not in cmds:
         print(__doc__)
         sys.exit(1)

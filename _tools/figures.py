@@ -24,6 +24,12 @@ spec.json — список объектов {"id": ..., "type": ..., ...}. Ти�
   mapping   — стрелочная схема отображения: {"A":["1","2","3"], "B":["a","b"], "arrows":[[0,0],[1,0],[2,1]],
                "names":["A","B"], "f":"φ"}
   chain     — композиция: {"sets":[{"name":"A","elems":["x"]},...], "maps":[{"f":"f","arrows":[[0,0]]},...], "total":"g∘f"}
+  geom      — геометрия по координатам (векторы, многоугольники, площади): {"xlim":[-1,6], "ylim":[-1,5],
+               "polygons":[{"pts":[[0,0],[4,1],[5,4],[1,3]],"label":"S","color":"c1"}],
+               "vectors":[{"from":[0,0],"to":[4,1],"label":"a","color":"c2"}],
+               "segments":[{"from":[0,0],"to":[5,4],"dashed":true,"label":"d"}],
+               "circles":[{"c":[0,0],"r":2,"dashed":true}], "points":[{"x":1,"y":3,"label":"D","offset":[6,-6]}],
+               "axes":true, "grid":true, "equal":true}   (цвета: c1…c5 или #hex; --check печатает площади и длины)
   flow      — схема рассуждения: {"nodes":["x ∈ A∩B","x ∈ A и x ∈ B","..."], "edges":["⇒","⇔"], "dir":"h"|"v"}
 
 Функции можно вызывать и из Python: from figures import plot, numberline, ...
@@ -246,6 +252,92 @@ def _label_pos(fr, f, brs, ylim, lx=None):
     x, y = best[int(len(best) * 0.8)]
     px, py = fr.X(x), fr.Y(y)
     return min(px + 6, fr.l + fr.pw - 60), max(py - 8, fr.t + 12)
+
+
+def _col(c, default):
+    return C.get(c, c) if c else default
+
+
+def _shoelace(pts):
+    return sum(pts[i][0] * pts[(i + 1) % len(pts)][1] - pts[(i + 1) % len(pts)][0] * pts[i][1] for i in range(len(pts))) / 2
+
+
+def geom(xlim, ylim, width=360, height=None, equal=True, axes_on=True, grid=True, polygons=None, vectors=None,
+         segments=None, circles=None, points=None, xlabel="x", ylabel="y", xstep=None, ystep=None, **kw):
+    axes_on = kw.get("axes", axes_on)
+    fr = Frame(xlim, ylim, width, height, equal)
+    u = uid()
+    out = [fr.svg_open(), _arrow_defs(u)]
+    marks = {}
+    def mark(col):
+        if col not in marks:
+            mid = f"{u}v{len(marks)}"
+            marks[col] = mid
+            out.append(f'<defs><marker id="{mid}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" '
+                       f'orient="auto"><path d="M0,1 L10,5 L0,9 z" fill="{col}"/></marker></defs>')
+        return marks[col]
+    if axes_on:
+        out += axes(fr, u, xlabel, ylabel, True, grid, xstep, ystep)
+    for i, pg in enumerate(polygons or []):
+        col = _col(pg.get("color"), SERIES[i % len(SERIES)])
+        pts = [(_num(x), _num(y)) for x, y in pg["pts"]]
+        d = " ".join(f"{fr.X(x):.1f},{fr.Y(y):.1f}" for x, y in pts)
+        tag = "polygon" if pg.get("closed", True) else "polyline"
+        dash = ' stroke-dasharray="5 4"' if pg.get("dashed") else ""
+        out.append(f'<{tag} points="{d}" fill="{col if tag == "polygon" else "none"}" fill-opacity="{pg.get("opacity", 0.15)}" '
+                   f'stroke="{col}" stroke-width="1.8"{dash}/>')
+        if pg.get("label"):
+            cx = sum(x for x, _ in pts) / len(pts); cy = sum(y for _, y in pts) / len(pts)
+            out.append(f'<text x="{fr.X(cx):.1f}" y="{fr.Y(cy)+4:.1f}" text-anchor="middle" fill="{col}" font-style="italic">{esc(pg["label"])}</text>')
+    for c in circles or []:
+        col = _col(c.get("color"), C["muted"])
+        (cx, cy), r = c["c"], _num(c["r"])
+        dash = ' stroke-dasharray="5 4"' if c.get("dashed") else ""
+        out.append(f'<ellipse cx="{fr.X(_num(cx)):.1f}" cy="{fr.Y(_num(cy)):.1f}" rx="{r*fr.pw/(fr.x1-fr.x0):.1f}" '
+                   f'ry="{r*fr.ph/(fr.y1-fr.y0):.1f}" fill="none" stroke="{col}" stroke-width="1.4"{dash}/>')
+    for sg in segments or []:
+        col = _col(sg.get("color"), C["muted"])
+        (x1, y1), (x2, y2) = [(_num(a), _num(b)) for a, b in (sg["from"], sg["to"])]
+        dash = ' stroke-dasharray="5 4"' if sg.get("dashed") else ""
+        out.append(f'<line x1="{fr.X(x1):.1f}" y1="{fr.Y(y1):.1f}" x2="{fr.X(x2):.1f}" y2="{fr.Y(y2):.1f}" stroke="{col}" stroke-width="1.4"{dash}/>')
+        if sg.get("label"):
+            out.append(f'<text x="{fr.X((x1+x2)/2)+5:.1f}" y="{fr.Y((y1+y2)/2)-5:.1f}" font-size="12" fill="{col}">{esc(sg["label"])}</text>')
+    for i, v in enumerate(vectors or []):
+        col = _col(v.get("color"), SERIES[i % len(SERIES)])
+        (x1, y1) = (_num(v.get("from", [0, 0])[0]), _num(v.get("from", [0, 0])[1]))
+        (x2, y2) = (_num(v["to"][0]), _num(v["to"][1]))
+        out.append(f'<line x1="{fr.X(x1):.1f}" y1="{fr.Y(y1):.1f}" x2="{fr.X(x2):.1f}" y2="{fr.Y(y2):.1f}" stroke="{col}" '
+                   f'stroke-width="2" marker-end="url(#{mark(col)})"/>')
+        if v.get("label"):
+            dx, dy = v.get("offset", [6, -6])
+            out.append(f'<text x="{fr.X((x1+x2)/2)+dx:.1f}" y="{fr.Y((y1+y2)/2)+dy:.1f}" fill="{col}" font-style="italic" font-weight="bold">{esc(v["label"])}</text>')
+    for p in points or []:
+        x, y = _num(p["x"]), _num(p["y"])
+        col = _col(p.get("color"), C["ink"])
+        out.append(f'<circle cx="{fr.X(x):.1f}" cy="{fr.Y(y):.1f}" r="3" fill="{"white" if p.get("open") else col}" stroke="{col}" stroke-width="1.5"/>')
+        if p.get("label"):
+            dx, dy = p.get("offset", [6, -6])
+            out.append(f'<text x="{fr.X(x)+dx:.1f}" y="{fr.Y(y)+dy:.1f}" font-size="12" fill="{col}">{esc(p["label"])}</text>')
+    out.append("</svg>")
+    return "\n".join(out)
+
+
+def check_geom(spec):
+    rep = []
+    for pg in spec.get("polygons", []):
+        pts = [(_num(x), _num(y)) for x, y in pg["pts"]]
+        a = _shoelace(pts)
+        rep.append(f'  многоугольник {pg.get("label", "")} {len(pts)} верш.: площадь {abs(a):g} '
+                   f'(обход {"против" if a > 0 else "по"} часовой)')
+    for v in spec.get("vectors", []):
+        f0 = v.get("from", [0, 0]); dx, dy = _num(v["to"][0]) - _num(f0[0]), _num(v["to"][1]) - _num(f0[1])
+        rep.append(f'  вектор {v.get("label", "")}: ({dx:g}, {dy:g}), длина {math.hypot(dx, dy):.4g}')
+    vs = [v for v in spec.get("vectors", []) if v.get("from", [0, 0]) == spec.get("vectors", [{}])[0].get("from", [0, 0])]
+    if len(vs) >= 2:
+        f0 = vs[0].get("from", [0, 0])
+        (ax, ay), (bx, by) = [(_num(v["to"][0]) - _num(f0[0]), _num(v["to"][1]) - _num(f0[1])) for v in vs[:2]]
+        rep.append(f'  det({vs[0].get("label","a")}, {vs[1].get("label","b")}) = {ax*by-ay*bx:g} (площадь параллелограмма {abs(ax*by-ay*bx):g})')
+    return "\n".join(rep)
 
 
 def numberline(range, intervals=None, points=None, ticks=None, width=360, label="x", **_):
@@ -475,7 +567,7 @@ def check_plot(spec):
     return "\n".join(rep)
 
 
-RENDER = {"chain": chain, "plot": plot, "numberline": numberline, "sequence": sequence, "venn": venn, "mapping": mapping, "flow": flow}
+RENDER = {"geom": geom, "chain": chain, "plot": plot, "numberline": numberline, "sequence": sequence, "venn": venn, "mapping": mapping, "flow": flow}
 
 
 def render(spec):
@@ -492,6 +584,7 @@ def main():
     if "--check" in args:
         for s in specs:
             if s["type"] == "plot": print(f'[{s.get("id")}]\n' + check_plot(s))
+            if s["type"] == "geom": print(f'[{s.get("id")}]\n' + check_geom(s))
         return
     if "--inline" in args:
         # подстановка <!--fig:id--> в HTML: --inline src.html out.html

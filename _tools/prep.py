@@ -18,6 +18,9 @@ SRC_DIRS = ["Конспект_с_пада", "Материал_преподом",
 SKIP = {".DS_Store"}
 TILE = 1400          # сторона плитки, px: крупнее — модель всё равно уменьшит, мельче — лишние плитки
 OVERLAP = 120        # перекрытие плиток, чтобы строка на стыке не потерялась
+BOARD_PX_PER_PT = 1.15  # разрешение досок Freeform/Notes: при нём читается обычный почерк
+MAX_TILES = 40          # потолок плиток на страницу (иначе разрешение снижается)
+MAX_SIDE = 9000         # картинки крупнее ужимаются до этой стороны
 MIN_TEXT = 200       # символов на страницу, чтобы считать PDF текстовым
 MARK = re.compile(r"\[(\?\??|!|пример|док|почему|связь|слово|перевод|ошибка\?|как сказать)\]")
 
@@ -103,24 +106,31 @@ def cmd_pending(args):
         print("новых исходников нет")
 
 
+def _grid(n):
+    """Начала плиток по одной оси с перекрытием."""
+    if n <= TILE:
+        return [0]
+    step = TILE - OVERLAP
+    starts = list(range(0, n - TILE, step)) + [n - TILE]
+    return sorted(set(starts))
+
+
 def tile_image(img_path, out_dir, prefix):
+    """Режет картинку на плитки TILE×TILE по обеим осям, не ужимая мелкий почерк."""
     from PIL import Image
     Image.MAX_IMAGE_PIXELS = None
     im = Image.open(img_path).convert("RGB")
     w, h = im.size
-    if w > TILE:  # приводим ширину к одной плитке: доски Freeform узкие и очень длинные
-        im = im.resize((TILE, round(h * TILE / w)), Image.LANCZOS)
+    k = min(1, MAX_SIDE / max(w, h))
+    if k < 1:
+        im = im.resize((round(w * k), round(h * k)), Image.LANCZOS)
         w, h = im.size
-    out, y, k = [], 0, 1
-    while True:
-        box = (0, y, w, min(h, y + TILE))
-        p = out_dir / f"{prefix}{k:02d}.png"
-        im.crop(box).save(p, optimize=True)
-        out.append(p)
-        if box[3] >= h:
-            break
-        y += TILE - OVERLAP
-        k += 1
+    out = []
+    for r, y in enumerate(_grid(h), 1):
+        for c, x in enumerate(_grid(w), 1):
+            p = out_dir / f"{prefix}r{r:02d}c{c:02d}.png"
+            im.crop((x, y, min(w, x + TILE), min(h, y + TILE))).save(p, optimize=True)
+            out.append(p)
     return out
 
 
@@ -158,7 +168,13 @@ def cmd_extract(args):
                 tmp = d / f"_p{p}"
                 # ширина страницы → ~TILE px, независимо от размера доски
                 w_pt = float(re.search(r"[Pp]age\s+(?:\d+\s+)?size:\s+([\d.]+)", subprocess.run(["pdfinfo", "-f", str(p), "-l", str(p), str(f)], capture_output=True, text=True).stdout)[1])
-                dpi = max(40, min(200, round(TILE / w_pt * 72)))
+                h_pt = float(re.search(r"[Pp]age\s+(?:\d+\s+)?size:\s+[\d.]+\s+x\s+([\d.]+)", subprocess.run(["pdfinfo", "-f", str(p), "-l", str(p), str(f)], capture_output=True, text=True).stdout)[1])
+                # узкий лист (A4) — во всю ширину плитки; широкая доска — фиксированное разрешение для почерка
+                scale = max(BOARD_PX_PER_PT, TILE / w_pt)
+                tiles_est = len(_grid(round(w_pt * scale))) * len(_grid(round(h_pt * scale)))
+                if tiles_est > MAX_TILES:
+                    scale *= (MAX_TILES / tiles_est) ** 0.5
+                dpi = max(40, min(200, int(scale * 72)))  # вниз: лишний пиксель не должен давать лишнюю колонку
                 subprocess.run(["pdftoppm", "-r", str(dpi), "-f", str(p), "-l", str(p), "-png", "-singlefile", str(f), str(tmp)], check=True)
                 tiles += tile_image(f"{tmp}.png", d, f"p{p}_")
                 Path(f"{tmp}.png").unlink()
@@ -179,7 +195,7 @@ def cmd_extract(args):
         else:
             print(f"! неизвестный тип: {f.name}")
             continue
-        print(f"плитки ({len(tiles)}) → {d.relative_to(ROOT)}  ⇒ расшифровать в {t.relative_to(ROOT)}")
+        print(f"плитки ({len(tiles)}; имя rNNcMM = ряд/колонка, читать по рядам слева направо) → {d.relative_to(ROOT)}  ⇒ расшифровать в {t.relative_to(ROOT)}")
 
 
 def cmd_status(_):

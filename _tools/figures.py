@@ -29,7 +29,10 @@ spec.json — список объектов {"id": ..., "type": ..., ...}. Ти�
                "vectors":[{"from":[0,0],"to":[4,1],"label":"a","color":"c2"}],
                "segments":[{"from":[0,0],"to":[5,4],"dashed":true,"label":"d"}],
                "circles":[{"c":[0,0],"r":2,"dashed":true}], "points":[{"x":1,"y":3,"label":"D","offset":[6,-6]}],
-               "axes":true, "grid":true, "equal":true}   (цвета: c1…c5 или #hex; --check печатает площади и длины)
+               "texts":[{"x":2,"y":4,"t":"+","color":"c3","size":16}],
+               "angles":[{"at":[0,0],"from":[4,1],"to":[1,3],"r":0.6,"label":"φ"}],
+               "axes":true, "grid":true, "equal":true}   (цвета: c1…c5 или #hex; --check печатает площади и длины;
+               у многоугольника "opacity" — заливка, "dashed" — пунктир; "axes":false — чистая схема без осей)
   flow      — схема рассуждения: {"nodes":["x ∈ A∩B","x ∈ A и x ∈ B","..."], "edges":["⇒","⇔"], "dir":"h"|"v"}
 
 Функции можно вызывать и из Python: from figures import plot, numberline, ...
@@ -263,7 +266,8 @@ def _shoelace(pts):
 
 
 def geom(xlim, ylim, width=360, height=None, equal=True, axes_on=True, grid=True, polygons=None, vectors=None,
-         segments=None, circles=None, points=None, xlabel="x", ylabel="y", xstep=None, ystep=None, **kw):
+         segments=None, circles=None, points=None, texts=None, angles=None, xlabel="x", ylabel="y", xstep=None,
+         ystep=None, **kw):
     axes_on = kw.get("axes", axes_on)
     fr = Frame(xlim, ylim, width, height, equal)
     u = uid()
@@ -311,6 +315,23 @@ def geom(xlim, ylim, width=360, height=None, equal=True, axes_on=True, grid=True
         if v.get("label"):
             dx, dy = v.get("offset", [6, -6])
             out.append(f'<text x="{fr.X((x1+x2)/2)+dx:.1f}" y="{fr.Y((y1+y2)/2)+dy:.1f}" fill="{col}" font-style="italic" font-weight="bold">{esc(v["label"])}</text>')
+    for a in angles or []:
+        col = _col(a.get("color"), C["c5"])
+        (ox, oy), (ax_, ay), (bx, by) = [(_num(u_[0]), _num(u_[1])) for u_ in (a["at"], a["from"], a["to"])]
+        r = _num(a.get("r", 0.5))
+        t1, t2 = math.atan2(ay - oy, ax_ - ox), math.atan2(by - oy, bx - ox)
+        d = (t2 - t1) % (2 * math.pi)
+        if d > math.pi:
+            t1, t2, d = t2, t1, 2 * math.pi - d
+        pts = [(ox + r * math.cos(t1 + d * k / 24), oy + r * math.sin(t1 + d * k / 24)) for k in range(25)]
+        out.append(f'<polyline points="{" ".join(f"{fr.X(x):.1f},{fr.Y(y):.1f}" for x, y in pts)}" fill="none" stroke="{col}" stroke-width="1.4"/>')
+        if a.get("label"):
+            tm = t1 + d / 2
+            out.append(f'<text x="{fr.X(ox + 1.6 * r * math.cos(tm)):.1f}" y="{fr.Y(oy + 1.6 * r * math.sin(tm)) + 4:.1f}" text-anchor="middle" fill="{col}" font-style="italic">{esc(a["label"])}</text>')
+    for t in texts or []:
+        col = _col(t.get("color"), C["ink"])
+        out.append(f'<text x="{fr.X(_num(t["x"])):.1f}" y="{fr.Y(_num(t["y"])):.1f}" text-anchor="{t.get("anchor", "middle")}" '
+                   f'font-size="{t.get("size", 13)}" fill="{col}"{" font-style=\"italic\"" if t.get("italic") else ""}>{esc(t["t"])}</text>')
     for p in points or []:
         x, y = _num(p["x"]), _num(p["y"])
         col = _col(p.get("color"), C["ink"])
@@ -326,6 +347,8 @@ def check_geom(spec):
     rep = []
     for pg in spec.get("polygons", []):
         pts = [(_num(x), _num(y)) for x, y in pg["pts"]]
+        if len(pts) < 3:
+            continue
         a = _shoelace(pts)
         rep.append(f'  многоугольник {pg.get("label", "")} {len(pts)} верш.: площадь {abs(a):g} '
                    f'(обход {"против" if a > 0 else "по"} часовой)')

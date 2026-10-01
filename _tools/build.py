@@ -90,14 +90,14 @@ def main():
     # 2. рисунки
     fig = a.fig or a.topic
     spec = subj / ".source" / "fig" / f"{fig}.json"
-    build = subj / ".source" / "_build.html"
+    build = subj / ".source" / f"_build-{a.topic}.html"  # своя для каждой темы: параллельные сборки не мешают
     if spec.exists():
         chk = subprocess.run([sys.executable, str(TOOLS / "figures.py"), str(spec), "--check"], capture_output=True, text=True)
         if chk.stdout.strip():
             print("— figures --check —\n" + chk.stdout.strip())
         if chk.returncode:
             sys.exit("! figures.py --check: " + chk.stderr.strip())
-        tmp = subj / ".source" / "_fig_in.html"
+        tmp = subj / ".source" / f"_fig_in-{a.topic}.html"
         tmp.write_text(html, encoding="utf-8")
         r = subprocess.run([sys.executable, str(TOOLS / "figures.py"), str(spec), "--inline", str(tmp), str(build)],
                            capture_output=True, text=True)
@@ -113,6 +113,22 @@ def main():
             return m[0]
         return f.read_text(encoding="utf-8")
     html = re.sub(r"<!--svg:([\w\-.]+)-->", put_svg, html)
+
+    # 2а. все ли рисунки исходников перенесены (по расшифровкам .source/text/<имя>.md)
+    srcs = a.sources
+    if not srcs:
+        for k, v in idx.get("processed", {}).items():
+            if nfc(k) == nfc(f"{subj.name}/{a.topic}"):
+                srcs = v.get("sources")
+    src_figs = 0
+    for sname in srcs or []:
+        tp = subj / ".source" / "text" / (Path(sname).stem + ".md")
+        if tp.exists():
+            src_figs += len(re.findall(r"\[рис\b", tp.read_text(encoding="utf-8")))
+    n_figs = len(re.findall(r"<figure\b", html))
+    if src_figs and n_figs < src_figs:
+        warn.append(f"в расшифровках исходников рисунков: {src_figs}, в конспекте: {n_figs} — каждый [рис] должен стать рисунком "
+                    f"(или в тексте явно сказано, почему нет)")
 
     # 3. проверки исходника
     left = re.findall(r"<!--(?:fig|svg):[\w\-.]+-->", html)

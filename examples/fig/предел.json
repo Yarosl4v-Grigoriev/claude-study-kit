@@ -1,0 +1,9 @@
+[
+ {"id":"nbhd","type":"numberline","range":[-0.5,3.5],
+  "intervals":[{"a":1,"b":3,"closed":[false,false],"label":"Uε(a) = (a−ε, a+ε)"}],
+  "points":[{"x":2,"open":false,"label":"a"}],
+  "ticks":[[1,"a−ε"],[2,""],[3,"a+ε"]]},
+ {"id":"seq","type":"sequence","a":"(-1)**n/n","n":[1,20],"limit":0,"eps":0.15,"N":7,"ylim":[-1.1,0.6],"label":"aₙ = (−1)ⁿ/n"},
+ {"id":"hyp","type":"plot","funcs":[{"f":"1/x","label":"y = 1/x"}],"xlim":[-4,4],"ylim":[-4,4],
+  "asymptotes":{"x":[0],"y":[0]},"points":[{"x":1,"y":1,"label":"(1, 1)"},{"x":-1,"y":-1,"label":"(−1, −1)"}],"equal":true}
+]

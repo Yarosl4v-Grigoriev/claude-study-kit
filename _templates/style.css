@@ -1,0 +1,88 @@
+/* ClaudeStudy — единый стиль конспектов. НЕ переписывать, только подключать. */
+
+@page { size: A4; margin: 18mm 16mm 20mm 16mm; }
+
+:root {
+  --text: #1a1a1a;
+  --muted: #6b6b6b;
+  --line: #e2e2e2;
+  --def-bg: #eef4ff;     --def-line: #3b6fd6;   /* определение — синий */
+  --lemma-bg: #eefaf1;   --lemma-line: #2f9e5a; /* лемма — зелёный */
+  --thm-bg: #fff3e6;     --thm-line: #e07b16;   /* теорема — оранжевый */
+  --axiom-bg: #f5eefc;   --axiom-line: #8a4fd1; /* аксиома — фиолетовый */
+  --proof-bg: #f7f7f7;   --proof-line: #9a9a9a; /* доказательство — серый */
+  --ex-bg: #fffbe6;      --ex-line: #c9a400;    /* пример — жёлтый */
+  --imp-bg: #ffecec;     --imp-line: #d63b3b;   /* важно [!] — красный */
+  --explain-bg: #e9f8f8; --explain-line: #1f9aa0; /* разбор [?] — бирюзовый */
+  --note-bg: #f0f0f0;    --note-line: #7a7a7a;  /* примечание/расхождение */
+}
+
+* { box-sizing: border-box; }
+body {
+  font-family: "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  color: var(--text); font-size: 11.5pt; line-height: 1.5; margin: 0;
+}
+h1 { font-size: 22pt; margin: 0 0 4mm; }
+h2 { font-size: 15pt; margin: 8mm 0 3mm; border-bottom: 1px solid var(--line); padding-bottom: 1mm; }
+h3 { font-size: 12.5pt; margin: 6mm 0 2mm; }
+.meta { color: var(--muted); font-size: 9.5pt; margin-bottom: 6mm; }
+p { margin: 0 0 2.5mm; }
+code { font-family: "JetBrains Mono", Menlo, monospace; font-size: 10pt; }
+
+/* Базовый блок утверждения */
+.block {
+  border-left: 4px solid var(--proof-line); background: var(--proof-bg);
+  padding: 3mm 4mm; margin: 3mm 0; border-radius: 3px;
+  page-break-inside: avoid;
+}
+.block .title { font-weight: 700; font-size: 10.5pt; letter-spacing: .02em; text-transform: uppercase; margin-bottom: 1.5mm; }
+.block .title .num { color: var(--muted); font-weight: 500; }
+
+.def      { background: var(--def-bg);     border-color: var(--def-line); }
+.lemma    { background: var(--lemma-bg);   border-color: var(--lemma-line); }
+.theorem  { background: var(--thm-bg);     border-color: var(--thm-line); }
+.axiom    { background: var(--axiom-bg);   border-color: var(--axiom-line); }
+.proof    { background: var(--proof-bg);   border-color: var(--proof-line); }
+.example  { background: var(--ex-bg);      border-color: var(--ex-line); }
+.important{ background: var(--imp-bg);     border-color: var(--imp-line); }
+.explain  { background: var(--explain-bg); border-color: var(--explain-line); }
+.note     { background: var(--note-bg);    border-color: var(--note-line); font-size: 10.5pt; }
+
+.def .title      { color: var(--def-line); }
+.lemma .title    { color: var(--lemma-line); }
+.theorem .title  { color: var(--thm-line); }
+.axiom .title    { color: var(--axiom-line); }
+.example .title  { color: var(--ex-line); }
+.important .title{ color: var(--imp-line); }
+.explain .title  { color: var(--explain-line); }
+
+.proof .end { text-align: right; }
+
+/* Рисунки */
+figure { margin: 4mm 0; text-align: center; page-break-inside: avoid; }
+figure svg, figure img { max-width: 100%; height: auto; }
+figcaption { color: var(--muted); font-size: 9.5pt; margin-top: 1.5mm; }
+.check { color: var(--imp-line); font-weight: 600; }
+
+/* Легенда цветов в шапке */
+.legend { display: flex; flex-wrap: wrap; gap: 2mm 5mm; font-size: 9pt; color: var(--muted); margin-bottom: 5mm; }
+.legend span::before { content: ""; display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
+.legend .l-def::before { background: var(--def-line); }
+.legend .l-lemma::before { background: var(--lemma-line); }
+.legend .l-thm::before { background: var(--thm-line); }
+.legend .l-axiom::before { background: var(--axiom-line); }
+.legend .l-ex::before { background: var(--ex-line); }
+.legend .l-imp::before { background: var(--imp-line); }
+.legend .l-explain::before { background: var(--explain-line); }
+
+/* Карточки (для /карточки) */
+.card { border: 1px solid var(--line); border-radius: 4px; padding: 3mm 4mm; margin: 3mm 0; page-break-inside: avoid; }
+.card .q { font-weight: 600; }
+.card .a { margin-top: 2mm; padding-top: 2mm; border-top: 1px dashed var(--line); }
+
+/* Таблицы */
+table { border-collapse: collapse; width: 100%; margin: 3mm 0; font-size: 10.5pt; }
+th, td { border: 1px solid var(--line); padding: 1.5mm 2.5mm; text-align: left; vertical-align: top; }
+th { background: #fafafa; }
+
+mjx-container { font-size: 105% !important; }

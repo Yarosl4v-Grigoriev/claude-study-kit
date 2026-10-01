@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>{{ТЕМА}} — {{ПРЕДМЕТ}}</title>
+<link rel="stylesheet" href="../../_templates/style.css">
+<script>
+window.MathJax = { tex: { inlineMath: [['$','$'], ['\\(','\\)']], displayMath: [['$$','$$'], ['\\[','\\]']] }, svg: { fontCache: 'global' } };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+</head>
+<body>
+
+<h1>{{ТЕМА}}</h1>
+<div class="meta">{{ПРЕДМЕТ}} · {{ДАТА}} · источники: {{ИСТОЧНИКИ}}</div>
+<div class="legend">
+  <span class="l-def">определение</span>
+  <span class="l-lemma">лемма</span>
+  <span class="l-thm">теорема</span>
+  <span class="l-axiom">аксиома</span>
+  <span class="l-ex">пример</span>
+  <span class="l-imp">важно для экзамена</span>
+  <span class="l-explain">разбор непонятного</span>
+</div>
+
+<!-- ======== ОБРАЗЦЫ БЛОКОВ. Удалить и заполнить содержанием. ======== -->
+
+<h2>1. Раздел</h2>
+
+<div class="block def">
+  <div class="title">Определение <span class="num">1.1</span></div>
+  Текст определения. Формула: $f(x) = \lim_{n\to\infty} a_n$.
+</div>
+
+<div class="block lemma">
+  <div class="title">Лемма <span class="num">1.2</span></div>
+  Формулировка.
+</div>
+
+<div class="block theorem">
+  <div class="title">Теорема <span class="num">1.3</span></div>
+  Формулировка.
+</div>
+
+<div class="block proof">
+  <div class="title">Доказательство</div>
+  Шаги. $$\sum_{k=1}^{n} k = \frac{n(n+1)}{2}$$
+  <div class="end">∎</div>
+</div>
+
+<div class="block axiom">
+  <div class="title">Аксиома</div>
+  Формулировка.
+</div>
+
+<div class="block example">
+  <div class="title">Пример</div>
+  Условие и полное решение.
+</div>
+
+<div class="block important">
+  <div class="title">Важно для экзамена</div>
+  То, что помечено [!] в материалах.
+</div>
+
+<div class="block explain">
+  <div class="title">Разбор — «{{цитата места с [?]}}»</div>
+  Объяснение простыми словами + пример. Для [??] — с предпосылок, 2 примера.
+</div>
+
+<div class="block note">
+  <div class="title">Примечание</div>
+  Расхождение источников: в лекции ..., в учебнике ... Взято из лекции.
+</div>
+
+<figure>
+  <!-- SVG вставляется из вывода: python3 _tools/figures.py .source/fig/<тема>.json -o .source/fig/<тема>/
+       Графики функций от руки НЕ рисовать. Типы: plot, numberline, sequence, venn, mapping, flow. -->
+  <svg><!-- сюда содержимое .source/fig/<тема>/<id>.svg --></svg>
+  <figcaption>Рис. 1. Подпись. <span class="check">[требует проверки]</span> — если не уверен</figcaption>
+</figure>
+
+</body>
+</html>

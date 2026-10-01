@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Предел последовательности — матанализ</title>
+<link rel="stylesheet" href="../_templates/style.css">
+<script>
+window.MathJax = { tex: { inlineMath: [['$','$'], ['\\(','\\)']], displayMath: [['$$','$$'], ['\\[','\\]']] }, svg: { fontCache: 'global' } };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+</head>
+<body>
+
+<h1>Предел числовой последовательности</h1>
+<div class="meta">матанализ · демонстрационный пример · источники: стандартный материал курса</div>
+<div class="legend">
+  <span class="l-def">определение</span>
+  <span class="l-thm">теорема</span>
+  <span class="l-ex">пример</span>
+  <span class="l-imp">важно для экзамена</span>
+  <span class="l-explain">разбор непонятного</span>
+</div>
+
+<h2>1. Окрестность точки</h2>
+
+<div class="block def">
+  <div class="title">Определение <span class="num">1.1</span></div>
+  $\varepsilon$-окрестностью точки $a \in \mathbb{R}$ ($\varepsilon > 0$) называется интервал
+  $$U_\varepsilon(a) = (a - \varepsilon,\; a + \varepsilon) = \{x \in \mathbb{R} : |x - a| \lt \varepsilon\}.$$
+</div>
+
+<figure>
+<!--fig:nbhd-->
+  <figcaption>Рис. 1. $\varepsilon$-окрестность — открытый интервал длины $2\varepsilon$ с центром в $a$; концы $a \pm \varepsilon$ ей не принадлежат.</figcaption>
+</figure>
+
+<h2>2. Предел последовательности</h2>
+
+<div class="block def">
+  <div class="title">Определение <span class="num">2.1</span></div>
+  Число $a$ называется пределом последовательности $(a_n)$, если
+  $$\forall \varepsilon > 0 \;\; \exists N \in \mathbb{N} \;\; \forall n \ge N: \; |a_n - a| \lt \varepsilon.$$
+  Обозначение: $\lim\limits_{n\to\infty} a_n = a$.
+</div>
+
+<div class="block explain">
+  <div class="title">Разбор — «что значит этот набор кванторов?» [?]</div>
+  Какую бы узкую полосу $(a - \varepsilon, a + \varepsilon)$ ни выбрали, начиная с некоторого номера $N$
+  все члены последовательности окажутся внутри неё. Вне полосы остаётся лишь конечное число членов —
+  $a_1, \dots, a_{N-1}$. Чем меньше $\varepsilon$, тем, как правило, больше нужный $N$.
+</div>
+
+<div class="block example">
+  <div class="title">Пример</div>
+  Докажем, что $\lim\limits_{n\to\infty} \dfrac{(-1)^n}{n} = 0$. Имеем $|a_n - 0| = \dfrac1n \lt \varepsilon \iff n > \dfrac1\varepsilon$.
+  Положим $N(\varepsilon) = \left[\dfrac1\varepsilon\right] + 1$. Тогда при $n \ge N$ выполнено $n > \dfrac1\varepsilon$, то есть $|a_n| \lt \varepsilon$.<br>
+  Для $\varepsilon = 0{,}15$: $N = [6{,}67] + 1 = 7$. Проверка: $|a_7| = \frac17 \approx 0{,}143 \lt 0{,}15$, а $|a_6| = \frac16 \approx 0{,}167 > 0{,}15$.
+</div>
+
+<figure>
+<!--fig:seq-->
+  <figcaption>Рис. 2. Члены $a_n = (-1)^n/n$ и полоса $0 \pm 0{,}15$: начиная с $N = 7$ все точки лежат внутри полосы, что и означает $a_n \to 0$.</figcaption>
+</figure>
+
+<div class="block theorem">
+  <div class="title">Теорема <span class="num">2.2</span> (единственность предела)</div>
+  Последовательность имеет не более одного предела.
+</div>
+
+<div class="block proof">
+  <div class="title">Доказательство</div>
+  Пусть $a_n \to a$ и $a_n \to b$, $a \ne b$. Возьмём $\varepsilon = \frac{|a-b|}{2}$. Найдутся $N_1, N_2$ такие, что
+  $|a_n - a| \lt \varepsilon$ при $n \ge N_1$ и $|a_n - b| \lt \varepsilon$ при $n \ge N_2$. Тогда при $n = \max(N_1, N_2)$:
+  $$|a - b| \le |a - a_n| + |a_n - b| \lt 2\varepsilon = |a - b|$$ — противоречие.
+  <div class="end">∎</div>
+</div>
+
+<div class="block important">
+  <div class="title">Важно для экзамена</div>
+  $N$ зависит от $\varepsilon$: на экзамене нужно явно предъявить $N(\varepsilon)$ и проверить, что при $n \ge N$ неравенство выполнено.
+  Фраза «при больших $n$ члены близки к $a$» доказательством не считается.
+</div>
+
+<h2>3. Связь с функциями</h2>
+
+<div class="block example">
+  <div class="title">Пример</div>
+  $a_n = \dfrac1n$ — значения функции $f(x) = \dfrac1x$ в натуральных точках. При $x \to +\infty$ график
+  приближается к асимптоте $y = 0$, поэтому и $a_n \to 0$. При $x \to 0$ функция не ограничена:
+  $x = 0$ — вертикальная асимптота.
+</div>
+
+<figure>
+<!--fig:hyp-->
+  <figcaption>Рис. 3. Гипербола $y = 1/x$: две ветви, обе убывают; асимптоты $x = 0$ и $y = 0$. График построен по вычисленным точкам, а не нарисован от руки.</figcaption>
+</figure>
+
+</body>
+</html>

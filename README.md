@@ -119,7 +119,7 @@ ClaudeStudy превращает Claude Code в **ассистента-конс�
 - интернет при сборке PDF: формулы рендерит MathJax с CDN.
 
 ```bash
-git clone https://github.com/<you>/claude-study-kit.git
+git clone https://github.com/Yarosl4v-Grigoriev/claude-study-kit.git
 cd claude-study-kit
 _tools/new_subject.sh матанализ алгебра линал
 ```

@@ -29,6 +29,21 @@ def nfc(s):
     return unicodedata.normalize("NFC", s).lower()
 
 
+MOJI = re.compile(r"[À-ÿ]{2,}[À-ÿ \xa0,.;:()\-−•]*")
+
+
+def fix_cp1251(txt):
+    """Кракозябры вида «Ïîñë-òè» (cp1251, прочитанный как latin-1) → нормальная кириллица."""
+    if len(re.findall(r"[À-ÿ]", txt)) < 50 or len(re.findall(r"[А-яЁё]", txt)) > len(txt) * 0.05:
+        return txt
+    def one(m):
+        try:
+            return m[0].encode("latin-1").decode("cp1251")
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            return m[0]
+    return MOJI.sub(one, txt)
+
+
 def subjects():
     return sorted(p for p in ROOT.iterdir()
                   if p.is_dir() and not p.name.startswith((".", "_")) and p.suffix != ".app" and p.name != "examples")
@@ -153,7 +168,7 @@ def cmd_extract(args):
             print(f"текст ({len(txt)} симв.) → {t.relative_to(ROOT)}")
             continue
         if k == "pdf-text":
-            txt = subprocess.run(["pdftotext", "-layout", str(f), "-"], capture_output=True, text=True).stdout
+            txt = fix_cp1251(subprocess.run(["pdftotext", "-layout", str(f), "-"], capture_output=True, text=True).stdout)
             t.write_text(f"<!-- источник: {f.relative_to(ROOT)} (pdftotext; формулы проверить по оригиналу при сомнении) -->\n" + txt)
             print(f"текст ({len(txt)} симв.) → {t.relative_to(ROOT)}")
             continue

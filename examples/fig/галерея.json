@@ -1,0 +1,14 @@
+[
+ {"id":"g-plot","type":"plot","funcs":[{"f":"1/(x-1)","label":"y = 1/(x−1)","label_at":2.4},{"f":"x^2/4-1","label":"y = x²/4 − 1","label_at":-2.6}],
+  "xlim":[-4,4],"ylim":[-3,3],"asymptotes":{"x":[1],"y":[0]},"points":[{"x":0,"y":-1,"label":"(0, −1)","offset":[-46,14]}]},
+ {"id":"g-num","type":"numberline","range":[-3,5],"intervals":[{"a":-1,"b":2,"closed":[true,false],"label":"[−1, 2)"},{"a":3,"b":"inf","closed":[false,false],"label":"(3, +∞)"}],
+  "points":[{"x":0,"label":"0"}],"ticks":[-1,2,3]},
+ {"id":"g-seq","type":"sequence","a":"1+(-1)**n/n","n":[1,24],"limit":1,"eps":0.12,"N":9,"ylim":[-0.1,1.7],"label":"aₙ = 1 + (−1)ⁿ/n"},
+ {"id":"g-venn","type":"venn","sets":["A","B","C"],"shade":["A&B&~C","A&C&~B","B&C&~A","A&B&C"]},
+ {"id":"g-map","type":"mapping","A":["1","2","3"],"B":["a","b","c"],"arrows":[[0,1],[1,2],[2,0]],"names":["A","B"],"f":"f — биекция"},
+ {"id":"g-geom","type":"geom","xlim":[-1,7],"ylim":[-1,5],
+  "polygons":[{"pts":[[0,0],[4,1],[6,4],[2,3]],"label":"S = |det| = 10"}],
+  "vectors":[{"from":[0,0],"to":[4,1],"label":"a","color":"c2","offset":[0,16]},{"from":[0,0],"to":[2,3],"label":"b","color":"c3","offset":[-16,0]}],
+  "angles":[{"at":[0,0],"from":[4,1],"to":[2,3],"r":0.9,"label":"φ"}]},
+ {"id":"g-flow","type":"flow","nodes":["x ∈ A∖(B∪C)","x ∈ A, x ∉ B∪C","x ∈ A, x ∉ B, x ∉ C","x ∈ (A∖B)∩(A∖C)"],"edges":["⇔","⇔","⇔"],"dir":"v"}
+]

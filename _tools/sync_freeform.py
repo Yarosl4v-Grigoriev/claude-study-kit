@@ -208,14 +208,16 @@ def main():
         lab = sn.parse_label(name.replace("\xa0", " "))
         if not lab:
             continue
-        if name in fstate:
-            continue
+        if name in fstate and (sn.ROOT / fstate[name]["file"]).exists():
+            continue  # в реестре и файл на месте; если файл удалён — выгружаем заново
         subj, kind = lab
         date = sn.note_date({"name": name, "created": datetime.now().strftime("%Y-%m-%d")})
         folder = sn.ROOT / subj / "Конспект_с_пада"
         base = f"{kind} {subj} {date}"
         target, k = folder / f"{base}.pdf", 2
-        while target.exists():
+        if name in fstate:
+            target = sn.ROOT / fstate[name]["file"]
+        while name not in fstate and target.exists():
             target = folder / f"{base} ({k}).pdf"
             k += 1
         if dry:
